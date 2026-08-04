@@ -12,6 +12,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The renderable tool advertises the UI via `_meta` (`ui/resourceUri`, plus the nested `ui.resourceUri` form) pointing at a new `ui://meraki/device-card.html` resource served as `text/html;profile=mcp-app`. The card HTML is a self-contained vite single-file bundle embedded at build time (`src/generated/device-card-html.ts`, committed), so it serves identically from stdio and Node HTTP transports. The server now declares the `resources` capability and answers `resources/list` / `resources/read` (`src/resources.ts`).
   - The card is neutral by default (system fonts, no vendor identity, no external fetches) and brandable via `window.__BRAND__` injection or `MCP_BRAND_*` env vars (`MCP_BRAND_NAME`, `MCP_BRAND_LOGO_URL`, `MCP_BRAND_PRIMARY_COLOR`, `MCP_BRAND_ACCENT_COLOR`, `MCP_BRAND_BG`, `MCP_BRAND_TEXT`): at serve time the server replaces the card's BRAND_INJECT marker with an inline, `<`-escaped `window.__BRAND__` script, so self-hosters can theme the card without rebuilding. No brand configured = HTML served unchanged.
 
+### Security
+- **Four high-blast-radius tools now require `confirm_destructive_action: true`.**
+  `meraki_appliance_firewall_l3_update`, `meraki_switch_ports_update`,
+  `meraki_wireless_ssids_update` and `meraki_devices_reboot` passed
+  `destructive: false` to `guardWrite`, so once `READ_ONLY_MODE=false` they executed
+  with no confirmation step. All four already advertised `destructiveHint: true`, but
+  that annotation is advice to the model, not a gate the server enforces — the two
+  had silently diverged.
+
+  These four are singled out because each is applied over the very link the change can
+  break, so the operator can lose the connectivity needed to undo it:
+  `meraki_appliance_firewall_l3_update` *replaces* the whole rule set (any rule omitted
+  from the payload is deleted) and can cut off network access;
+  `meraki_wireless_ssids_update` drops every client on the SSID, which cannot rejoin
+  with the old credentials; `meraki_switch_ports_update` can disable the port or move
+  the VLAN out from under the devices behind it; `meraki_devices_reboot` takes the
+  device offline.
+
+  Each of the four also gained an explicit `confirm_destructive_action` boolean in its
+  input schema — previously only `meraki_networks_delete`, `meraki_devices_remove` and
+  `meraki_raw_request` declared one, so without this the new gate would have been
+  unsatisfiable and the tools permanently blocked rather than merely confirmable. The
+  parameter stays optional, so the first unconfirmed call still reaches the guard and
+  returns its "re-invoke with confirmation" message instead of being rejected by
+  schema validation.
+
+  `READ_ONLY_MODE` semantics are unchanged, and confirmation is not an escape hatch
+  from it: a confirmed call is still blocked while read-only mode is on. As before,
+  the confirmation flag is never forwarded to the Meraki API.
+
 ### Fixed
 - `/health` liveness endpoint now returns an unconditional `200` instead of gating on
   credentials. The Azure Container Apps liveness probe hits `GET /health` with no

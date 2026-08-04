@@ -23,8 +23,9 @@ function getTools(): Tool[] {
       description:
         '⚠ HIGH-IMPACT. Updates a switch port\'s configuration (name, enabled state, VLAN, ' +
         'type, PoE, etc.). Changes take effect immediately and can disrupt connectivity for ' +
-        'devices on that port. Reversible by reverting the settings. ' +
-        'Confirm with the user before invoking.',
+        'devices on that port — including the uplink carrying this request. Reversible by ' +
+        'reverting the settings, if you still have a path to the switch. Requires ' +
+        'confirm_destructive_action: true. Confirm with the user before invoking.',
       annotations: {
         title: 'Update switch port (high-impact)',
         readOnlyHint: false,
@@ -40,6 +41,12 @@ function getTools(): Tool[] {
           settings: {
             type: 'object',
             description: 'Port settings to apply (e.g. { name, enabled, vlan, type, poeEnabled, ... }).',
+          },
+          confirm_destructive_action: {
+            type: 'boolean',
+            description:
+              'Must be true to confirm reconfiguring this port. Disabling it or moving its ' +
+              'VLAN can cut off the devices behind it.',
           },
         },
         required: ['serial', 'port_id', 'settings'],
@@ -71,7 +78,7 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
     case 'meraki_switch_ports_update': {
-      const blocked = guardWrite({ destructive: false }, args);
+      const blocked = guardWrite({ destructive: true }, args);
       if (blocked) return blocked;
       const client = await getClient();
       const serial = args.serial as string;
