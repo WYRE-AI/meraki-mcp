@@ -11,6 +11,7 @@ const {
   portUpdateSpy,
   ssidUpdateSpy,
   rebootSpy,
+  clientPolicySpy,
 } = vi.hoisted(() => ({
   updateSpy: vi.fn(),
   deleteSpy: vi.fn(),
@@ -19,6 +20,7 @@ const {
   portUpdateSpy: vi.fn(),
   ssidUpdateSpy: vi.fn(),
   rebootSpy: vi.fn(),
+  clientPolicySpy: vi.fn(),
 }));
 
 vi.mock('../src/utils/client.js', () => ({
@@ -30,6 +32,7 @@ vi.mock('../src/utils/client.js', () => ({
     switch: { updatePort: portUpdateSpy },
     wireless: { updateSsid: ssidUpdateSpy },
     devices: { reboot: rebootSpy },
+    clients: { updatePolicy: clientPolicySpy },
     request: requestSpy,
   })),
 }));
@@ -40,6 +43,7 @@ import { applianceHandler } from '../src/domains/appliance.js';
 import { switchHandler } from '../src/domains/switch.js';
 import { wirelessHandler } from '../src/domains/wireless.js';
 import { devicesHandler } from '../src/domains/devices.js';
+import { clientsHandler } from '../src/domains/clients.js';
 import { getClient } from '../src/utils/client.js';
 
 function resetEnv(): void {
@@ -107,10 +111,15 @@ describe('safety gating', () => {
  * High-blast-radius tools.
  *
  * Each of these is applied over the very link it can break — a bad L3 rule set,
- * a disabled switch port, a re-keyed SSID or a reboot can sever the operator's
- * own path back to the device, leaving them unable to undo it. All four already
- * advertise `destructiveHint: true`; these tests pin the runtime guard to that
- * annotation so it cannot silently drift back to an unconfirmed write.
+ * a disabled switch port, a re-keyed SSID, a blocked client or a reboot can
+ * sever the operator's own path back to the device, leaving them unable to undo
+ * it. All of them already advertise `destructiveHint: true`; these tests pin the
+ * runtime guard to that annotation so it cannot silently drift back to an
+ * unconfirmed write.
+ *
+ * The annotation is the contract. `every destructive tool is gated` below
+ * enforces it across the whole surface, so a new tool cannot be added with the
+ * hint set and the guard left off — which is exactly how these six diverged.
  */
 const HIGH_BLAST_RADIUS: Array<{
   tool: string;
@@ -143,6 +152,20 @@ const HIGH_BLAST_RADIUS: Array<{
     handler: devicesHandler,
     spy: rebootSpy,
     args: { serial: 'Q2XX-ABCD-1234' },
+  },
+  {
+    tool: 'meraki_clients_update_policy',
+    handler: clientsHandler,
+    spy: clientPolicySpy,
+    // "Blocked" cuts the device off the network immediately.
+    args: { network_id: 'N_1', client_id: 'aa:bb:cc:dd:ee:ff', device_policy: 'Blocked' },
+  },
+  {
+    tool: 'meraki_networks_update',
+    handler: networksHandler,
+    spy: updateSpy,
+    // `tags` replaces rather than merges — omitted tags are dropped.
+    args: { network_id: 'N_1', tags: ['production'] },
   },
 ];
 
@@ -208,3 +231,62 @@ describe.each(HIGH_BLAST_RADIUS)(
     });
   }
 );
+
+/**
+ * Surface-wide invariant.
+ *
+ * `destructiveHint: true` is a promise to the model that the operation is
+ * dangerous. If the runtime guard does not also demand confirmation, that
+ * promise is advice rather than a gate — and advice is not a control. This test
+ * asserts the two agree for every tool the server exposes, so the divergence
+ * cannot reappear in a tool nobody remembered to add to HIGH_BLAST_RADIUS.
+ */
+describe('destructive annotation and runtime guard agree', () => {
+  beforeEach(resetEnv);
+
+  const HANDLERS: Array<{ name: string; handler: DomainHandler }> = [
+    { name: 'appliance', handler: applianceHandler },
+    { name: 'clients', handler: clientsHandler },
+    { name: 'devices', handler: devicesHandler },
+    { name: 'networks', handler: networksHandler },
+    { name: 'switch', handler: switchHandler },
+    { name: 'wireless', handler: wirelessHandler },
+  ];
+
+  it('every tool annotated destructive declares the confirmation argument', () => {
+    const offenders: string[] = [];
+
+    for (const { handler } of HANDLERS) {
+      for (const def of handler.getTools()) {
+        if (def.annotations?.destructiveHint !== true) continue;
+        const props = def.inputSchema.properties as
+          | Record<string, { type?: string }>
+          | undefined;
+        if (props?.confirm_destructive_action?.type !== 'boolean') {
+          offenders.push(def.name);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('every tool annotated destructive is blocked without confirmation', async () => {
+    process.env.READ_ONLY_MODE = 'false';
+    const offenders: string[] = [];
+
+    for (const { handler } of HANDLERS) {
+      for (const def of handler.getTools()) {
+        if (def.annotations?.destructiveHint !== true) continue;
+        // Deliberately called with no arguments: a tool that reaches its API
+        // call on empty input never consulted the guard at all.
+        const res = await handler.handleCall(def.name, {});
+        if (!res.isError || !res.content[0].text.includes('confirmation_required')) {
+          offenders.push(def.name);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});

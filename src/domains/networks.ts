@@ -37,8 +37,9 @@ function getTools(): Tool[] {
       description:
         '⚠ HIGH-IMPACT. Updates a network\'s configuration (name, time zone, tags, notes). ' +
         'Changes take effect immediately across the network and are visible to operators. ' +
-        'Reversible by reverting the fields. ' +
-        'Confirm with the user before invoking.',
+        'Reversible by reverting the fields, but `tags` REPLACES the existing list rather ' +
+        'than merging, so omitted tags are dropped. Requires confirm_destructive_action: ' +
+        'true. Confirm with the user before invoking.',
       annotations: {
         title: 'Update network (high-impact)',
         readOnlyHint: false,
@@ -54,6 +55,12 @@ function getTools(): Tool[] {
           timeZone: { type: 'string', description: 'New IANA time zone (e.g. "America/Chicago")' },
           tags: { type: 'array', items: { type: 'string' }, description: 'Replacement tag list' },
           notes: { type: 'string', description: 'Network notes' },
+          confirm_destructive_action: {
+            type: 'boolean',
+            description:
+              'Must be true to confirm updating this network. Any tag not present in ' +
+              '`tags` is dropped.',
+          },
         },
         required: ['network_id'],
       },
@@ -106,7 +113,7 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       return { content: [{ type: 'text', text: JSON.stringify(network, null, 2) }] };
     }
     case 'meraki_networks_update': {
-      const blocked = guardWrite({ destructive: false }, args);
+      const blocked = guardWrite({ destructive: true }, args);
       if (blocked) return blocked;
       const client = await getClient();
       const networkId = args.network_id as string;
