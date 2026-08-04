@@ -51,8 +51,9 @@ function getTools(): Tool[] {
       description:
         '⚠ HIGH-IMPACT. Updates the network access policy for a client (e.g. Normal, ' +
         'Blocked, Allowed, or a group policy). Takes effect immediately and can revoke or ' +
-        'grant network access for the device. Reversible by reassigning the policy. ' +
-        'Confirm with the user before invoking.',
+        'grant network access for the device. Reversible by reassigning the policy, but a ' +
+        'blocked client loses the connection it would need to report the problem. Requires ' +
+        'confirm_destructive_action: true. Confirm with the user before invoking.',
       annotations: {
         title: 'Update client policy (high-impact)',
         readOnlyHint: false,
@@ -73,6 +74,12 @@ function getTools(): Tool[] {
           group_policy_id: {
             type: 'string',
             description: 'Group policy ID (required when device_policy is "Group policy")',
+          },
+          confirm_destructive_action: {
+            type: 'boolean',
+            description:
+              'Must be true to confirm changing this client\'s network access. Setting ' +
+              '"Blocked" cuts the device off the network immediately.',
           },
         },
         required: ['network_id', 'client_id', 'device_policy'],
@@ -110,7 +117,7 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
     case 'meraki_clients_update_policy': {
-      const blocked = guardWrite({ destructive: false }, args);
+      const blocked = guardWrite({ destructive: true }, args);
       if (blocked) return blocked;
       const client = await getClient();
       const networkId = args.network_id as string;

@@ -73,8 +73,11 @@ npm run build
 This server defaults to **read-only**. Write operations (updates, reboots, deletions) are blocked unless you explicitly set `READ_ONLY_MODE=false`.
 
 - **Read tools** (`*_list`, `*_get`) are always available.
-- **High-impact writes** (e.g. `meraki_networks_update`, `meraki_devices_reboot`, `meraki_wireless_ssids_update`) are gated by read-only mode.
-- **Destructive tools** (`meraki_networks_delete`, `meraki_devices_remove`) additionally require a `confirm_destructive_action: true` argument. The confirmation flag is never forwarded to the Meraki API.
+- **High-impact writes** (e.g. `meraki_networks_update`, `meraki_clients_update_policy`) are gated by read-only mode.
+- **Confirmation-gated tools** additionally require a `confirm_destructive_action: true` argument, even once `READ_ONLY_MODE=false`. The confirmation flag is never forwarded to the Meraki API. Two groups qualify:
+  - **Irreversible** — `meraki_networks_delete`, `meraki_devices_remove`.
+  - **High blast radius** — `meraki_appliance_firewall_l3_update`, `meraki_switch_ports_update`, `meraki_wireless_ssids_update`, `meraki_devices_reboot`. These are reversible in principle, but each is applied over the same network link the change can break, so an operator can lose the connectivity needed to undo it. `meraki_appliance_firewall_l3_update` also *replaces* the rule set — any rule not in the payload is deleted — and `meraki_wireless_ssids_update` drops every client on the SSID when the PSK or auth mode changes.
+- Confirmation is **not** an escape hatch from read-only mode: while `READ_ONLY_MODE` is on, a confirmed call is still blocked.
 - The **`meraki_raw_request`** escape hatch classifies the call by HTTP method: `GET` is a read; `POST`/`PUT`/`DELETE` are writes; `DELETE` is destructive.
 
 ## Domains
@@ -85,14 +88,14 @@ All tools are returned upfront. Use `meraki_navigate` to explore a domain's tool
 |--------|-------|
 | **organizations** | `meraki_organizations_list`, `meraki_organizations_get`, `meraki_organizations_inventory_list` |
 | **networks** | `meraki_networks_list`, `meraki_networks_get`, `meraki_networks_update` ⚠, `meraki_networks_delete` ⚠⚠ |
-| **devices** | `meraki_devices_list`, `meraki_devices_get`, `meraki_devices_reboot` ⚠, `meraki_devices_remove` ⚠⚠ |
+| **devices** | `meraki_devices_list`, `meraki_devices_get`, `meraki_devices_reboot` ⚠⚠, `meraki_devices_remove` ⚠⚠ |
 | **clients** | `meraki_clients_list`, `meraki_clients_get`, `meraki_clients_get_policy`, `meraki_clients_update_policy` ⚠ |
-| **wireless** | `meraki_wireless_ssids_list`, `meraki_wireless_ssids_update` ⚠, `meraki_wireless_rf_profiles_list` |
-| **switch** | `meraki_switch_ports_list`, `meraki_switch_ports_update` ⚠, `meraki_switch_port_statuses_list` |
-| **appliance** | `meraki_appliance_firewall_l3_get`, `meraki_appliance_firewall_l3_update` ⚠, `meraki_appliance_vpn_status_get` |
-| **(long tail)** | `meraki_raw_request` |
+| **wireless** | `meraki_wireless_ssids_list`, `meraki_wireless_ssids_update` ⚠⚠, `meraki_wireless_rf_profiles_list` |
+| **switch** | `meraki_switch_ports_list`, `meraki_switch_ports_update` ⚠⚠, `meraki_switch_port_statuses_list` |
+| **appliance** | `meraki_appliance_firewall_l3_get`, `meraki_appliance_firewall_l3_update` ⚠⚠, `meraki_appliance_vpn_status_get` |
+| **(long tail)** | `meraki_raw_request` ⚠⚠ (on `DELETE`) |
 
-⚠ = high-impact write · ⚠⚠ = destructive / irreversible
+⚠ = high-impact write, gated by read-only mode · ⚠⚠ = additionally requires `confirm_destructive_action: true`
 
 ## Docker Deployment
 

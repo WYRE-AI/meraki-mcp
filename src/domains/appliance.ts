@@ -24,8 +24,9 @@ function getTools(): Tool[] {
       description:
         '⚠ HIGH-IMPACT. Replaces the layer 3 firewall rule set for an MX appliance network. ' +
         'This changes what traffic is allowed or denied and takes effect immediately; a bad ' +
-        'rule set can cut off network access. Reversible by re-applying the previous rules. ' +
-        'Confirm with the user before invoking.',
+        'rule set can cut off network access. Reversible by re-applying the previous rules, ' +
+        'but the change is applied over the same link it can sever. Requires ' +
+        'confirm_destructive_action: true. Confirm with the user before invoking.',
       annotations: {
         title: 'Update L3 firewall rules (high-impact)',
         readOnlyHint: false,
@@ -41,6 +42,12 @@ function getTools(): Tool[] {
             type: 'array',
             description: 'The ordered list of L3 firewall rules to apply (replaces the existing set).',
             items: { type: 'object' },
+          },
+          confirm_destructive_action: {
+            type: 'boolean',
+            description:
+              'Must be true to confirm replacing the entire L3 firewall rule set. Any rule ' +
+              'not present in `rules` is deleted.',
           },
         },
         required: ['network_id', 'rules'],
@@ -71,7 +78,7 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
     case 'meraki_appliance_firewall_l3_update': {
-      const blocked = guardWrite({ destructive: false }, args);
+      const blocked = guardWrite({ destructive: true }, args);
       if (blocked) return blocked;
       const client = await getClient();
       const networkId = args.network_id as string;

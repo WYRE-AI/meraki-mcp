@@ -36,8 +36,9 @@ function getTools(): Tool[] {
       name: 'meraki_devices_reboot',
       description:
         '⚠ HIGH-IMPACT. Reboots a Meraki device, causing a temporary loss of connectivity ' +
-        'for clients served by it. Service resumes automatically after the reboot. ' +
-        'Confirm with the user before invoking.',
+        'for clients served by it — including, if this is the gateway, the link carrying ' +
+        'this request. Service resumes automatically after the reboot. Requires ' +
+        'confirm_destructive_action: true. Confirm with the user before invoking.',
       annotations: {
         title: 'Reboot device (high-impact)',
         readOnlyHint: false,
@@ -49,6 +50,12 @@ function getTools(): Tool[] {
         type: 'object' as const,
         properties: {
           serial: { type: 'string', description: 'Device serial number' },
+          confirm_destructive_action: {
+            type: 'boolean',
+            description:
+              'Must be true to confirm rebooting the device. Clients served by it lose ' +
+              'connectivity until it comes back up.',
+          },
         },
         required: ['serial'],
       },
@@ -106,7 +113,7 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
     }
     case 'meraki_devices_reboot': {
-      const blocked = guardWrite({ destructive: false }, args);
+      const blocked = guardWrite({ destructive: true }, args);
       if (blocked) return blocked;
       const client = await getClient();
       const serial = args.serial as string;

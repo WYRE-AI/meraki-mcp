@@ -23,7 +23,9 @@ function getTools(): Tool[] {
       description:
         '⚠ HIGH-IMPACT. Updates a wireless SSID\'s configuration (name, enabled state, auth ' +
         'mode, PSK, VLAN, etc.). Changes are broadcast immediately and can disconnect clients ' +
-        'or change network access. Reversible by reverting the settings. ' +
+        'or change network access. Changing the PSK or auth mode drops every client on the ' +
+        'SSID and they cannot rejoin with the old credentials. Reversible by reverting the ' +
+        'settings. Requires confirm_destructive_action: true. ' +
         'Confirm with the user before invoking.',
       annotations: {
         title: 'Update wireless SSID (high-impact)',
@@ -40,6 +42,12 @@ function getTools(): Tool[] {
           settings: {
             type: 'object',
             description: 'SSID settings to apply (e.g. { name, enabled, authMode, psk, ... }).',
+          },
+          confirm_destructive_action: {
+            type: 'boolean',
+            description:
+              'Must be true to confirm reconfiguring this SSID. Changing the PSK, auth mode ' +
+              'or enabled state disconnects every client currently on it.',
           },
         },
         required: ['network_id', 'number', 'settings'],
@@ -70,7 +78,7 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
     case 'meraki_wireless_ssids_update': {
-      const blocked = guardWrite({ destructive: false }, args);
+      const blocked = guardWrite({ destructive: true }, args);
       if (blocked) return blocked;
       const client = await getClient();
       const networkId = args.network_id as string;
