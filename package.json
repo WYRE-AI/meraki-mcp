@@ -32,7 +32,7 @@
   "author": "WYRE Technology",
   "license": "Apache-2.0",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@wyre-technology/node-meraki": "^1.0.0"
   },
   "devDependencies": {
