@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.wyre-technology/meraki-mcp",
+  "name": "io.github.WYRE-AI/meraki-mcp",
   "title": "Cisco Meraki",
   "description": "MCP server for the Cisco Meraki Dashboard: networks, devices, wireless, switch, appliance.",
   "repository": {
-    "url": "https://github.com/wyre-technology/meraki-mcp",
+    "url": "https://github.com/WYRE-AI/meraki-mcp",
     "source": "github"
   },
   "version": "0.0.0",
-  "websiteUrl": "https://github.com/wyre-technology/meraki-mcp",
+  "websiteUrl": "https://github.com/WYRE-AI/meraki-mcp",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/wyre-technology/meraki-mcp:0.0.0",
+      "identifier": "ghcr.io/wyre-ai/meraki-mcp:0.0.0",
       "transport": {
         "type": "stdio"
       },

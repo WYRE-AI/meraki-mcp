@@ -1,5 +1,5 @@
 {
-  "name": "@wyre-technology/meraki-mcp",
+  "name": "@wyre-ai/meraki-mcp",
   "version": "1.0.0",
   "description": "MCP server for the Cisco Meraki Dashboard",
   "type": "module",
