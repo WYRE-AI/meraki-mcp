@@ -111,7 +111,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
         with:
-          images: ghcr.io/wyre-technology/meraki-mcp
+          images: ghcr.io/wyre-ai/meraki-mcp
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -139,8 +139,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/wyre-technology/meraki-mcp:latest
-            ghcr.io/wyre-technology/meraki-mcp:v${{ steps.version.outputs.version }}
+            ghcr.io/wyre-ai/meraki-mcp:latest
+            ghcr.io/wyre-ai/meraki-mcp:v${{ steps.version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -163,7 +163,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         with:
-          image-ref: 'ghcr.io/wyre-technology/meraki-mcp:latest'
+          image-ref: 'ghcr.io/wyre-ai/meraki-mcp:latest'
           format: 'sarif'
           output: 'trivy-results.sarif'
 
@@ -172,20 +172,27 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  deploy:
-    name: Deploy to Azure Container Apps
-    needs: [release, docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      id-token: write
-      contents: read
-    uses: wyre-technology/.github/.github/workflows/mcp-server-deploy.yml@d6ace529b210900f460cb365529f2a552daedf7a
-    with:
-      vendor-slug: meraki
-      image-name: ghcr.io/wyre-technology/meraki-mcp
-      digest: ${{ needs.docker.outputs.digest }}
-      version: ${{ needs.release.outputs.version }}
-    secrets: inherit
+  # DEPLOY TEMPORARILY DISABLED (2026-08 org migration fleet wave).
+  #
+  # Fleet-wide hold per the org-migration checklist: the gateway/ACA image
+  # references move to ghcr.io/wyre-ai/* in the same workstream as the Azure
+  # infra move. The gwp-meraki Container App still runs the legacy-path image;
+  # re-enable (and repoint) once the fleet infra decision lands.
+  #
+  # deploy:
+  #   name: Deploy to Azure Container Apps
+  #   needs: [release, docker]
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   uses: wyre-technology/.github/.github/workflows/mcp-server-deploy.yml@d6ace529b210900f460cb365529f2a552daedf7a
+  #   with:
+  #     vendor-slug: meraki
+  #     image-name: ghcr.io/wyre-ai/meraki-mcp
+  #     digest: ${{ needs.docker.outputs.digest }}
+  #     version: ${{ needs.release.outputs.version }}
+  #   secrets: inherit
 
   mcp-registry:
     name: Publish to MCP Registry
@@ -210,7 +217,7 @@ jobs:
         run: |
           jq --arg v "$VERSION" \
             '.version = $v
-             | .packages[0].identifier = "ghcr.io/wyre-technology/meraki-mcp:v" + $v' \
+             | .packages[0].identifier = "ghcr.io/wyre-ai/meraki-mcp:v" + $v' \
             server.json > server.json.tmp
           mv server.json.tmp server.json
           cat server.json
@@ -227,5 +234,5 @@ jobs:
       - name: Verify registry listing
         run: |
           sleep 5
-          curl -sf "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.wyre-technology/meraki-mcp" \
+          curl -sf "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.WYRE-AI/meraki-mcp" \
             | jq '.servers[]?.server | {name, version}'

@@ -1,12 +1,12 @@
 # Meraki MCP Server
 
-[![Build Status](https://github.com/wyre-technology/meraki-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/wyre-technology/meraki-mcp/actions/workflows/release.yml)
+[![Build Status](https://github.com/WYRE-AI/meraki-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/WYRE-AI/meraki-mcp/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that provides AI assistants with structured access to the [Cisco Meraki Dashboard](https://developer.cisco.com/meraki/api-v1/) — organizations, networks, devices, clients, wireless, switching, and appliance operations.
 
-> **Note:** This project is maintained by [Wyre Technology](https://github.com/wyre-technology).
+> **Note:** This project is maintained by [Wyre Technology](https://github.com/WYRE-AI).
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 claude mcp add meraki-mcp \
   -e MERAKI_API_KEY=your-api-key \
   -e MERAKI_ORG_ID=your-org-id \
-  -- npx -y github:wyre-technology/meraki-mcp
+  -- npx -y github:WYRE-AI/meraki-mcp
 ```
 
 See [Installation](#installation) for Docker and from-source methods.
@@ -41,13 +41,13 @@ docker run -d \
   -e MERAKI_API_KEY=your-key \
   -e MERAKI_ORG_ID=your-org-id \
   -p 8080:8080 \
-  ghcr.io/wyre-technology/meraki-mcp:latest
+  ghcr.io/wyre-ai/meraki-mcp:latest
 ```
 
 ### Option 2: From Source
 
 ```bash
-git clone https://github.com/wyre-technology/meraki-mcp.git
+git clone https://github.com/WYRE-AI/meraki-mcp.git
 cd meraki-mcp
 npm ci
 npm run build
@@ -104,7 +104,7 @@ Copy `.env.example` to `.env` and fill in your credentials:
 ```bash
 cp .env.example .env
 # Edit .env with your Meraki API key (and org ID)
-docker run --env-file .env -p 8080:8080 ghcr.io/wyre-technology/meraki-mcp:latest
+docker run --env-file .env -p 8080:8080 ghcr.io/wyre-ai/meraki-mcp:latest
 ```
 
 ## Development
