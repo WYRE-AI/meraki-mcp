@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Handler-invocation test coverage for every domain (`tests/domains/*.test.ts`, +45 tests).**
+  Prior coverage exercised the tool *surface* (names, schemas, `_meta`) and the
+  write-path confirmation gating, but no test ever invoked a domain handler's
+  `handleCall` for a read tool (`list`/`get`), and the write-path tests didn't
+  assert the exact shape of the call handed to the Meraki SDK. New tests mock
+  `utils/client.js` and invoke each of the 25 tool handlers directly across all
+  seven domains (`organizations`, `networks`, `devices`, `clients`, `wireless`,
+  `switch`, `appliance`) plus the `passthrough` escape hatch, asserting both the
+  outbound SDK call (method, positional args, camelCased option keys such as
+  `per_page` → `perPage`) and the response mapping back into the tool's JSON
+  content. Also newly covered: `meraki_devices_get`'s `_card` composition
+  (device fetch → `buildDeviceCard` → a second `networks.get` call to resolve
+  the network name, including the best-effort fallback when that lookup
+  fails or the payload has no serial) and `meraki_devices_remove`'s happy
+  path, which previously had no test past its generic confirmation-gating
+  check.
 - **Interactive device card via MCP Apps (SEP-1865).** `meraki_devices_get` results now render as an interactive card in MCP Apps hosts (Claude Desktop/web, and other hosts advertising the `io.modelcontextprotocol/ui` extension), instead of a wall of JSON. The card shows the device name, model, product type, resolved network name, MAC, LAN IP, firmware, address, tags, and notes. The card is read-only — Meraki device mutations stay behind the confirmation-gated tools. Non-App hosts are unaffected: the tool's JSON payload is unchanged apart from a new `_card` field.
   - The renderable tool advertises the UI via `_meta` (`ui/resourceUri`, plus the nested `ui.resourceUri` form) pointing at a new `ui://meraki/device-card.html` resource served as `text/html;profile=mcp-app`. The card HTML is a self-contained vite single-file bundle embedded at build time (`src/generated/device-card-html.ts`, committed), so it serves identically from stdio and Node HTTP transports. The server now declares the `resources` capability and answers `resources/list` / `resources/read` (`src/resources.ts`).
   - The card is neutral by default (system fonts, no vendor identity, no external fetches) and brandable via `window.__BRAND__` injection or `MCP_BRAND_*` env vars (`MCP_BRAND_NAME`, `MCP_BRAND_LOGO_URL`, `MCP_BRAND_PRIMARY_COLOR`, `MCP_BRAND_ACCENT_COLOR`, `MCP_BRAND_BG`, `MCP_BRAND_TEXT`): at serve time the server replaces the card's BRAND_INJECT marker with an inline, `<`-escaped `window.__BRAND__` script, so self-hosters can theme the card without rebuilding. No brand configured = HTML served unchanged.
