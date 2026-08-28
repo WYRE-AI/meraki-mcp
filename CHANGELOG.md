@@ -43,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the confirmation flag is never forwarded to the Meraki API.
 
 ### Fixed
+- **`meraki_status` and the unknown-tool error advised calling `meraki_navigate`
+  to discover tools without qualification.** Conduit suppresses `*_navigate` /
+  `*_back` at the gateway (tier filtering lives in the grant resolver, which
+  the container cannot see) and replaces them with `conduit__my_access`, so
+  that advice pointed callers behind the gateway at a tool that returns
+  method-not-found. Both strings now point to `conduit__my_access` for
+  gateway callers and keep `meraki_navigate` as the standalone-mode discovery
+  path. The tool itself is unchanged. (WYRE-AI/conduit#1236)
 - `/health` liveness endpoint now returns an unconditional `200` instead of gating on
   credentials. The Azure Container Apps liveness probe hits `GET /health` with no
   credentials, so the previous credential gate returned `503` and crash-looped the
