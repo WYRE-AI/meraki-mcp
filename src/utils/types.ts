@@ -11,6 +11,7 @@ export type DomainName =
 
 export type CallToolResult = {
   content: Array<{ type: 'text'; text: string }>;
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
 };
 

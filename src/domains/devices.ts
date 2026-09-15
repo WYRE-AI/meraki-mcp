@@ -108,7 +108,13 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       // MCP Apps: attach the normalized card payload the ui:// device card
       // renders from. Best-effort — a null card just means no UI surface.
       const card = await buildDeviceCard(payload, client).catch(() => null);
-      if (card) payload._card = card;
+      if (card) {
+        payload._card = card;
+        const cardName = (card as { name?: string }).name ?? serial;
+        const network = (card as { network?: string }).network;
+        const summary = `${cardName}${network ? ` on ${network}` : ''}.`;
+        return { content: [{ type: 'text', text: summary }], structuredContent: payload };
+      }
 
       return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
     }

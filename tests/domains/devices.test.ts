@@ -58,7 +58,7 @@ describe('devicesHandler', () => {
   });
 
   describe('meraki_devices_get', () => {
-    it('attaches a resolved _card when the device has a serial and a resolvable network', async () => {
+    it('attaches a resolved _card in structuredContent, with a plain-text summary in content', async () => {
       getSpy.mockResolvedValue({
         serial: 'Q2XX-1111-AAAA',
         name: 'ap-lobby',
@@ -71,7 +71,11 @@ describe('devicesHandler', () => {
       const res = await devicesHandler.handleCall('meraki_devices_get', { serial: 'Q2XX-1111-AAAA' });
 
       expect(getSpy).toHaveBeenCalledWith('Q2XX-1111-AAAA');
-      const payload = JSON.parse(res.content[0].text);
+      // content is a short human-readable summary, not a JSON dump.
+      expect(res.content[0].text).not.toMatch(/^[{[]/);
+      expect(res.content[0].text).toContain('ap-lobby');
+      expect(res.content[0].text).toContain('Downtown HQ');
+      const payload = res.structuredContent as Record<string, any>;
       expect(payload.serial).toBe('Q2XX-1111-AAAA');
       expect(payload._card).toBeDefined();
       expect(payload._card.name).toBe('ap-lobby');
@@ -84,16 +88,17 @@ describe('devicesHandler', () => {
 
       const res = await devicesHandler.handleCall('meraki_devices_get', { serial: 'Q2XX-1111-AAAA' });
 
-      const payload = JSON.parse(res.content[0].text);
+      const payload = res.structuredContent as Record<string, any>;
       expect(payload._card.network).toBe('N_1');
       expect(res.isError).toBeFalsy();
     });
 
-    it('omits _card entirely for a payload with no serial (best-effort, never fails the tool)', async () => {
+    it('omits _card and structuredContent for a payload with no serial (best-effort, never fails the tool)', async () => {
       getSpy.mockResolvedValue({ name: 'weird-payload' });
 
       const res = await devicesHandler.handleCall('meraki_devices_get', { serial: 'Q2XX-1111-AAAA' });
 
+      expect(res.structuredContent).toBeUndefined();
       const payload = JSON.parse(res.content[0].text);
       expect(payload._card).toBeUndefined();
       expect(res.isError).toBeFalsy();
