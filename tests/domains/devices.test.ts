@@ -93,13 +93,17 @@ describe('devicesHandler', () => {
       expect(res.isError).toBeFalsy();
     });
 
-    it('omits _card and structuredContent for a payload with no serial (best-effort, never fails the tool)', async () => {
+    it('still splits into structuredContent (no _card) for a payload with no serial (best-effort, never fails the tool)', async () => {
       getSpy.mockResolvedValue({ name: 'weird-payload' });
 
       const res = await devicesHandler.handleCall('meraki_devices_get', { serial: 'Q2XX-1111-AAAA' });
 
-      expect(res.structuredContent).toBeUndefined();
-      const payload = JSON.parse(res.content[0].text);
+      // content is still a short summary, not a JSON dump — a missing card
+      // must not fall back to duplicating the full payload into content.
+      expect(res.content[0].text).not.toMatch(/^[{[]/);
+      expect(res.content[0].text).toContain('Q2XX-1111-AAAA');
+      const payload = res.structuredContent as Record<string, any>;
+      expect(payload).toBeDefined();
       expect(payload._card).toBeUndefined();
       expect(res.isError).toBeFalsy();
     });
