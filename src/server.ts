@@ -16,6 +16,11 @@ export function createServer(): Server {
         tools: {},
         resources: {},
         logging: {},
+        extensions: {
+          'io.modelcontextprotocol/ui': {
+            mimeTypes: ['text/html;profile=mcp-app'],
+          },
+        },
       },
     }
   );

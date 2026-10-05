@@ -108,9 +108,23 @@ async function handleCall(toolName: string, args: Record<string, unknown>): Prom
       // MCP Apps: attach the normalized card payload the ui:// device card
       // renders from. Best-effort — a null card just means no UI surface.
       const card = await buildDeviceCard(payload, client).catch(() => null);
-      if (card) payload._card = card;
 
-      return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+      // SEP-1865: the model-facing content is always a short text summary;
+      // the full payload always lives in structuredContent so it isn't
+      // duplicated into the LLM context. Whether a card builds only changes
+      // the summary text and whether _card is present — never which field
+      // the payload lands in (same pattern as itglue-mcp#107).
+      let summary: string;
+      if (card) {
+        payload._card = card;
+        const cardName = (card as { name?: string }).name ?? serial;
+        const network = (card as { network?: string }).network;
+        summary = `${cardName}${network ? ` on ${network}` : ''}.`;
+      } else {
+        summary = `Retrieved device ${serial}.`;
+      }
+
+      return { content: [{ type: 'text', text: summary }], structuredContent: payload };
     }
     case 'meraki_devices_reboot': {
       const blocked = guardWrite({ destructive: true }, args);
