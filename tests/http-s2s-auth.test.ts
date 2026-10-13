@@ -243,7 +243,7 @@ describe('HTTP startup fails closed without CONDUIT_S2S_SECRET', () => {
   });
 
   it('refuses other known placeholders without logging them', async () => {
-    for (const placeholder of ['changeme', 'SECRET', 's2s-secret']) {
+    for (const placeholder of ['changeme', 'ChangeMe', 's2s-secret']) {
       process.env.CONDUIT_S2S_SECRET = placeholder;
       await expectRefused((logged) => {
         expect(logged).toContain('known placeholder');
