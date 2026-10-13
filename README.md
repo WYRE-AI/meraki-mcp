@@ -36,11 +36,12 @@ See [Installation](#installation) for Docker and from-source methods.
 
 ### Option 1: Docker
 
+The image listens on `0.0.0.0` inside the container and sets `AUTH_MODE=gateway`. Publish the port on loopback and pass the service-to-service secret. In gateway mode the API key arrives on each request as `X-Meraki-Api-Key`.
+
 ```bash
 docker run -d \
-  -e MERAKI_API_KEY=your-key \
-  -e MERAKI_ORG_ID=your-org-id \
-  -p 8080:8080 \
+  -e CONDUIT_S2S_SECRET="$CONDUIT_S2S_SECRET" \
+  -p 127.0.0.1:8080:8080 \
   ghcr.io/wyre-ai/meraki-mcp:latest
 ```
 
@@ -62,11 +63,32 @@ npm run build
 | `MERAKI_BASE_URL` | Override the Meraki API base URL (optional) | — |
 | `READ_ONLY_MODE` | Safety switch — blocks all writes when `true` | `true` |
 | `MCP_TRANSPORT` | Transport mode (`stdio` or `http`) | `stdio` |
+| `MCP_HTTP_HOST` | Bind address when a secret is configured. Unset binds `127.0.0.1`. The container image sets `0.0.0.0`. | `127.0.0.1` |
 | `MCP_HTTP_PORT` | HTTP server port | `8080` |
-| `AUTH_MODE` | Auth mode (`env` or `gateway`) | `env` |
+| `AUTH_MODE` | `env` reads `MERAKI_*` from the environment. `gateway` requires `X-Meraki-Api-Key` on each `/mcp` request. The image and Compose set `gateway`. | `env` |
+| `CONDUIT_S2S_SECRET` | Service-to-service secret. Required to start HTTP. Empty and known placeholder values are refused. Never commit a real value. | — |
+| `MCP_ALLOW_INSECURE_DEV` | Set to `1` for local HTTP without `CONDUIT_S2S_SECRET`. Logs a warning, skips `X-Gateway-S2S`, and listens on `127.0.0.1` only. | — |
 | `LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 
 > The legacy `READ_ONLY` variable is also honored; `READ_ONLY_MODE` takes precedence.
+
+### HTTP authentication
+
+`MCP_TRANSPORT=http` requires `CONDUIT_S2S_SECRET`. Startup logs an error and exits non-zero when that variable is empty or a known placeholder (`changeme`, `change-me`, `placeholder`, `secret`, `example`, `replace-me`, `s2s-secret`, `your-secret`, `your-s2s-secret`, `replace-with-a-real-secret`). The process never writes the secret to logs. `MCP_ALLOW_INSECURE_DEV=1` starts without a secret, logs a warning, skips `X-Gateway-S2S`, and listens on `127.0.0.1` only — a wider `MCP_HTTP_HOST` such as `0.0.0.0` is ignored and the override is logged. A placeholder secret is still refused when that flag is set.
+
+When `MCP_HTTP_HOST` is unset, the server binds `127.0.0.1`. A configured secret honors `MCP_HTTP_HOST`, including `0.0.0.0`.
+
+With a secret set, every `/mcp` request must include `X-Gateway-S2S`. The value is `t=<unix seconds>,v1=<hex>`. `v1` is HMAC-SHA256 of the ASCII string `t=<unix seconds>`, keyed with `CONDUIT_S2S_SECRET`, encoded as lowercase hex. Timestamps more than 300 seconds from the server clock are rejected. A missing or invalid header returns 401.
+
+`AUTH_MODE=gateway` also requires `X-Meraki-Api-Key` on each `/mcp` request. `X-Meraki-Org-Id` is optional. Those headers are the credential source for that request. A missing API key returns 401.
+
+`/health` stays unauthenticated and does not read vendor credentials. The stdio transport does not use `CONDUIT_S2S_SECRET`.
+
+Example `X-Gateway-S2S` value (illustrative; mint it with the real secret):
+
+```text
+t=1710000000,v1=<hmac-sha256 hex of "t=1710000000">
+```
 
 ## Safety Model
 
@@ -99,12 +121,24 @@ All tools are returned upfront. Use `meraki_navigate` to explore a domain's tool
 
 ## Docker Deployment
 
-Copy `.env.example` to `.env` and fill in your credentials:
+Copy `.env.example` to `.env` and set `CONDUIT_S2S_SECRET` (`openssl rand -hex 32`). Leave the example file's secret empty.
+
+Compose publishes `127.0.0.1:8080:8080`, refuses to start when `CONDUIT_S2S_SECRET` is unset, and runs `AUTH_MODE=gateway`. That service has no `MERAKI_API_KEY`, `MERAKI_ORG_ID`, or `env_file`, so a project `.env` cannot inject static vendor credentials. Compose interpolates `CONDUIT_S2S_SECRET` from the environment.
 
 ```bash
-cp .env.example .env
-# Edit .env with your Meraki API key (and org ID)
-docker run --env-file .env -p 8080:8080 ghcr.io/wyre-ai/meraki-mcp:latest
+CONDUIT_S2S_SECRET="$CONDUIT_S2S_SECRET" docker compose up
+```
+
+Single-tenant HTTP (`AUTH_MODE=env`) still requires the S2S secret, then uses `MERAKI_API_KEY` from the environment:
+
+```bash
+docker run -d \
+  -e CONDUIT_S2S_SECRET="$CONDUIT_S2S_SECRET" \
+  -e AUTH_MODE=env \
+  -e MERAKI_API_KEY=your-key \
+  -e MERAKI_ORG_ID=your-org-id \
+  -p 127.0.0.1:8080:8080 \
+  ghcr.io/wyre-ai/meraki-mcp:latest
 ```
 
 ## Development
@@ -113,7 +147,10 @@ docker run --env-file .env -p 8080:8080 ghcr.io/wyre-ai/meraki-mcp:latest
 npm ci
 npm run build       # Build the project
 npm run start       # Run over stdio
-npm run start:http  # Run the HTTP transport
+# HTTP refuses to start until CONDUIT_S2S_SECRET is set
+CONDUIT_S2S_SECRET="$CONDUIT_S2S_SECRET" npm run start:http
+# Local HTTP only, without a service-to-service secret (always binds 127.0.0.1)
+MCP_ALLOW_INSECURE_DEV=1 npm run start:http
 npm run test        # Run tests
 ```
 
