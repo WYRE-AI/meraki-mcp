@@ -59,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the confirmation flag is never forwarded to the Meraki API.
 
 ### Fixed
+- **The HTTP transport no longer exits on a malformed request (WYREAI-741).** The request
+  target was parsed against the client-supplied `Host` header, and a value that does not parse
+  (or a target such as `//`) threw inside the request listener before authentication. The
+  target is now parsed against a fixed base, so `Host` is no longer consulted, and a target
+  that still cannot be parsed gets a `400` JSON response while the server keeps running.
+
 - **`meraki_status` and the unknown-tool error advised calling `meraki_navigate`
   to discover tools without qualification.** Conduit suppresses `*_navigate` /
   `*_back` at the gateway (tier filtering lives in the grant resolver, which
