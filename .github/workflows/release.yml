@@ -22,7 +22,7 @@ jobs:
     name: Test
     # Delegated to the canonical reusable CI workflow.
     # See: ~/.claude/skills/mcp-server-fleet-ci-template
-    uses: wyre-technology/.github/.github/workflows/mcp-server-ci.yml@8f1da6a78d0cc0b8a330547bfc6892da3e72ae13
+    uses: WYRE-AI/.github/.github/workflows/mcp-server-ci.yml@542c9ed380fff70fab36234fc222cf9e7a076de9
     with:
       node-versions: '["20", "22"]'
       lint-destructive-warnings: true
@@ -211,7 +211,7 @@ jobs:
   #   permissions:
   #     id-token: write
   #     contents: read
-  #   uses: wyre-technology/.github/.github/workflows/mcp-server-deploy.yml@d6ace529b210900f460cb365529f2a552daedf7a
+  #   uses: WYRE-AI/.github/.github/workflows/mcp-server-deploy.yml@542c9ed380fff70fab36234fc222cf9e7a076de9
   #   with:
   #     vendor-slug: meraki
   #     image-name: ghcr.io/wyre-ai/meraki-mcp
